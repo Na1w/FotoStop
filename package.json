@@ -1,0 +1,11 @@
+{
+  "name": "aitools",
+  "version": "1.0.0",
+  "main": "index.js",
+  "author": "Fredrik Andersson",
+  "license": "MIT",
+  "dependencies": {
+    "webpack": "^3.8.1",
+    "webpack-closure-compiler": "^2.1.5"
+  }
+}
