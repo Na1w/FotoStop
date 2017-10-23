@@ -2,12 +2,20 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Title</title>
+    <title>FotoStop CK (Creative Klod)</title>
 </head>
 <script src="bundle.js"></script>
 <body>
+<div style="display: inline-block;">
+    <input type="range" id="gslider" value="0" max="255" min="0" step="1" style="display: block">
+    <canvas id="colorPalette" width=128 height=128 style='width:128px;height:128px; border: solid; display: block;'></canvas>
+    <canvas id="brush" width=128 height=128 style='width:128px;height:128px; border: solid; display: block;'></canvas>
+    <span id="brushSizeText" style="display: block;">Size</span>
+    <input type="range" id="brushSize" value="13" max="55" min="1" step="0.5">
+</div>
 
-<canvas id="paintlayer"></canvas>
+<canvas id="paintlayer" width=640 height=480 style='width:640px;height:480px; cursor: crosshair; border: solid;'></canvas>
+<button type="button" onclick="exportPng()" style="display: block;">Export Png</button>
 <script>
     window.addEventListener('DOMContentLoaded', function () {
        main();
