@@ -7,14 +7,90 @@ window["exportPng"] = function () {
     x.document.close();
 };
 
+var currentBrush = 'hardBrush';
+
+window["liveBrush"] = false;
+
+window["setBrush"] = function (brush, live) {
+    window["activateBrush"](brush, live);
+};
+
+window["brushes"] = {
+    "softBrush": function (bctx, size, center, canvas) {
+        bctx.filter = 'blur(1.5px)';
+        bctx.clearRect(0,0,canvas.width, canvas.height);
+        bctx.beginPath();
+        bctx.arc(center,center,size,0,2*Math.PI);
+        bctx.fill();
+    },
+    "hardBrush": function (bctx, size, center, canvas) {
+        bctx.filter = 'none';
+        bctx.clearRect(0,0,canvas.width, canvas.height);
+        bctx.beginPath();
+        bctx.arc(center,center,size,0,2*Math.PI);
+        bctx.fill();
+    },
+    "dotBrush": function (bctx, size, center, canvas) {
+        bctx.filter = 'none';
+        bctx.clearRect(0,0,canvas.width, canvas.height);
+        for(var i=0;i<5*size;i++) {
+            bctx.beginPath();
+            bctx.arc(center + (Math.random()*(size*2)) - size,center + (Math.random()*(size*2))-size,0.5,0,2*Math.PI);
+            bctx.fill();
+        }
+    },
+    "calligraphyBrush": function (bctx, size, center, canvas) {
+        bctx.filter = 'none';
+        bctx.clearRect(0,0,canvas.width, canvas.height);
+        bctx.beginPath();
+        bctx.lineWidth=size/2;
+        var offset = 0;
+
+        if(window["liveBrush"]) {
+            offset = Math.random()%360 - 180;
+            bctx.rotate(offset);
+        }
+
+        var halfsize = size/2;
+        bctx.strokeStyle = bctx.fillStyle;
+        bctx.moveTo(center - halfsize,center - halfsize);
+        bctx.lineTo(center + halfsize,center + halfsize);
+        bctx.stroke();
+/*        bctx.beginPath();
+        bctx.arc(center,center,size,0,2*Math.PI);
+        bctx.fill();*/
+    }
+};
+
 window["main"] = function ()
 {
+    var eraseMode = false;
+    var animCb = null;
+    var ctr = 100;
+    var callback = function () {
+        if(animCb) {
+            animCb();
+        }
+        if(ctr-- < 0) {
+            ctr = 100;
+
+            var cvs = document.getElementById('overview');
+            var ctx = cvs.getContext("2d");
+
+            ctx.drawImage(document.getElementById('paintlayer'),0, 0, cvs.width, cvs.height);
+        }
+        window.requestAnimationFrame(callback);
+    };
+
+    callback();
     var gcolor = 'black';
     var gblendMode = 'source-over';
     var bmousetrack = false;
     var pmousetrack = false;
 
     var paintcanvas = document.getElementById('paintlayer');
+    var overviewcanvas = document.getElementById('overview');
+
     var brushcanvas = document.getElementById('brush');
     var colorpalette = document.getElementById('colorPalette');
     var cctx = colorpalette.getContext("2d");
@@ -22,22 +98,72 @@ window["main"] = function ()
     var bctx = brushcanvas.getContext("2d");
     var brushSizeMax = 128;
 
+    var aspect = window.innerHeight/window.innerWidth;
+
+    overviewcanvas.style.width = '200px';
+    overviewcanvas.style.height= parseInt(200*aspect) + 'px';
+    overviewcanvas.width = 200;
+    overviewcanvas.height= parseInt(200*aspect);
+
+    paintcanvas.style.width = paintcanvas.width = window.innerWidth;
+    paintcanvas.style.height = paintcanvas.height = window.innerHeight;
     document.getElementById('brushSize').onmousemove = function () {
-        console.log(document.getElementById('brushSize').value);
         generateBrush(document.getElementById('brushSize').value);
+    };
+
+    window["activateBrush"] = function (brush, live) {
+        currentBrush = brush;
+        window["liveBrush"] = live;
+        bctx.setTransform(1, 0, 0, 1, 0, 0);
+        generateBrush();
     };
 
     createColorPalette();
 
+    var cpsampling = false;
+
+    colorpalette.onmouseup = function () {
+        cpsampling = false;
+    };
+
+    colorpalette.onmousemove = function (ev) {
+        if(cpsampling) {
+            var xOffset = colorpalette.offsetLeft;
+            var yOffset = colorpalette.offsetTop;
+
+            var buff = cctx.getImageData(0, 0, colorpalette.width, colorpalette.height);
+            var index = ((ev.clientX - xOffset) + (ev.clientY-yOffset) * colorpalette.width) * 4;
+
+            var rgb = 'rgb(' + buff.data[index++] +','+buff.data[index++] + ',' + buff.data[index++] +')';
+            generateBrush(undefined, rgb);
+        }
+    };
+
+    colorpalette.onmouseout = function () {
+        cpsampling = false;
+    };
+
     colorpalette.onmousedown = function (ev) {
+        cpsampling = true;
         var xOffset = colorpalette.offsetLeft;
         var yOffset = colorpalette.offsetTop;
 
         var buff = cctx.getImageData(0, 0, colorpalette.width, colorpalette.height);
         var index = ((ev.clientX - xOffset) + (ev.clientY-yOffset) * colorpalette.width) * 4;
 
-        var rgb = 'rgb(' + buff.data[index++] +','+buff.data[index++] + ',' + buff.data[index++] +')';
+        var r=buff.data[index++];
+        var g=buff.data[index++];
+        var b=buff.data[index++];
+        var rgb = 'rgb(' + r +','+ g+ ',' + b+')';
+        document.getElementById('rcslider').value = r;
+        document.getElementById('gcslider').value = g;
+        document.getElementById('bcslider').value = b;
+
         generateBrush(undefined, rgb);
+    };
+    document.getElementById('rcslider').onmousemove = document.getElementById('gcslider').onmousemove =document.getElementById('bcslider').onmousemove = function() {
+       var rgb = 'rgb(' + document.getElementById('rcslider').value  +','+ document.getElementById('gcslider').value+ ',' + document.getElementById('bcslider').value+')';
+       generateBrush(undefined, rgb);
     };
 
 
@@ -71,23 +197,25 @@ window["main"] = function ()
 
         cctx.putImageData(buff, 0, 0);
     }
+
+
+
     // Just a lame brush
     function generateBrush(size, color) {
         if(color || gcolor) {
             gcolor = bctx.fillStyle = color || gcolor;
             gblendMode = 'source-over';
         } else {
+
             bctx.fillStyle = "black";
 //            gblendMode = 'overlay';
         }
+
         if(!size){
             size=document.getElementById('brushSize').value;
         }
-        bctx.filter = 'blur(1px)';
-        bctx.clearRect(0,0,brushcanvas.width, brushcanvas.height);
-        bctx.beginPath();
-        bctx.arc(brushSizeMax/2,brushSizeMax/2,size,0,2*Math.PI);
-        bctx.fill();
+        window["brushes"][currentBrush](bctx, size, brushSizeMax/2, brushcanvas);
+
         document.getElementById('brushSizeText').innerText = size + ' px';
     }
     generateBrush(13);
@@ -160,12 +288,15 @@ window["main"] = function ()
         var err = 0;
         var y = sY;
         for(var x=sX;x<=eX;x++) {
+            if(window["liveBrush"] && x%4 == 0) {
+                generateBrush();
+            }
             if(steep) {
                 ctx.drawImage(brushcanvas, y - xOffset, x - yOffset);
             } else {
                 ctx.drawImage(brushcanvas, x - xOffset, y - yOffset);
             }
-            err += err2
+            err += err2;
             if(err > dx) {
                 y += (eY > sY ? 1 : -1);
                 err -= dx * 2;
@@ -183,7 +314,7 @@ window["main"] = function ()
             currentPos = ev;
             lastPos = ev;
             ctx.drawImage(brushcanvas, ev.clientX - xOffset, ev.clientY - yOffset);
-            pmousetrack = setInterval(function () {
+            animCb = pmousetrack = function () {
                 if(lastPos && currentPos) {
                     var startX = lastPos.clientX;
                     var endX = currentPos.clientX;
@@ -194,20 +325,25 @@ window["main"] = function ()
                     } else {
                         var alp = ctx.globalAlpha;
                         ctx.globalAlpha = 0.01;
+                        if(window["liveBrush"]) {
+                            generateBrush();
+                        }
                         ctx.drawImage(brushcanvas, currentPos.clientX - xOffset + (Math.random()*5)-2.5, currentPos.clientY - yOffset + (Math.random()*5)-2.5);
                         ctx.globalAlpha = alp;
                     }
                 }
                 lastPos = currentPos;
-            }, 1/60.0);
+            };
 
         }
-        console.log('mouse is down');
     };
 
-    paintcanvas.onmouseup = function (ev) {
-        clearInterval(pmousetrack);
-
+    /*paintcanvas.onmouseout =
+    */document.getElementById('palette').onmouseover = paintcanvas.onmouseup = function (ev) {
+        if(pmousetrack) {
+            animCb = null;
+       //     clearInterval(pmousetrack);
+        }
         pmousetrack = null;
         lastPos = null;
         currentPos = null;
