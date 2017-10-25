@@ -1,3 +1,74 @@
+var layers = [];
+console.log(atob("RnJlZHJpayBBbmRlcnNzb24gMjAxNyA8ZnJlZHJpa2FuZGVyc3NvbkBtYWMuY29tPg=="));
+
+window["addLayer"] = newLayer;
+var currentLayer = null;
+
+function newLayer() {
+    var cI = layers.indexOf(currentLayer);
+    if(cI < 0 || (cI+1) >= layers.length) {
+        var c = document.createElement('canvas');
+        c.width = window.innerWidth;
+        c.height = window.innerHeight;
+        c.style.width = document.getElementById('overview').width + 'px';
+        c.style.height = document.getElementById('overview').height + 'px';
+        var ctx = c.getContext("2d");
+        ctx.globalAlpha = 0.1;
+        c.style.display='block';
+
+        layers.push({ canvas: c, ctx: ctx});
+        var theLayer = layers[layers.length-1];
+
+        c.onmousedown = function (layer) {
+            currentLayer = theLayer;
+            updateLayerInfo();
+        }.bind(this, theLayer);
+
+        currentLayer = theLayer;
+        document.getElementById('layers').appendChild(c);
+
+    } else {
+        currentLayer = layers[cI+1];
+    }
+
+    updateLayerInfo()
+}
+
+window["removeLayer"] = function removeLayer() {
+    var cI = layers.indexOf(currentLayer);
+    if(cI >= 0) {
+        layers.splice(cI, 1);
+        window["clearLayer"]();
+        currentLayer.canvas.parentNode.removeChild(currentLayer.canvas);
+        if(layers.length === 0) {
+            newLayer();
+        } else {
+            currentLayer = layers[0];
+        }
+    }
+    updateLayerInfo();
+}
+
+window["clearLayer"] = function clearLayer() {
+    currentLayer.ctx.clearRect(0,0,currentLayer.canvas.width,currentLayer.canvas.height);
+    document.getElementById('overview').getContext("2d").clearRect(0,0, document.getElementById('overview').width,  document.getElementById('overview').height);
+    document.getElementById('paintlayer').getContext("2d").fillRect(0,0,currentLayer.canvas.width, currentLayer.canvas.height);
+  /*  layers.forEach(function (layer) {
+        document.getElementById('paintlayer').getContext("2d").drawImage(layer.canvas,0,0,currentLayer.canvas.width,currentLayer.canvas.height);
+    });*/
+}
+
+function getActiveLayer() {
+    //console.log('Current layer is ' + layers.indexOf(currentLayer));
+    return currentLayer;
+}
+
+function updateLayerInfo() {
+    var workingLayer = layers.indexOf(currentLayer);
+
+    document.getElementById('layerInfo').innerText = 'Layer ' + (workingLayer+1) + '/' + layers.length;
+}
+
 window["exportPng"] = function () {
     var string = document.getElementById('paintlayer').toDataURL("image/png");
     var iframe = "<iframe width='100%' height='100%' src='" + string + "'></iframe>"
@@ -6,6 +77,7 @@ window["exportPng"] = function () {
     x.document.write(iframe);
     x.document.close();
 };
+
 
 var currentBrush = 'hardBrush';
 
@@ -59,6 +131,14 @@ window["brushes"] = {
 /*        bctx.beginPath();
         bctx.arc(center,center,size,0,2*Math.PI);
         bctx.fill();*/
+    },
+    "imageBrush": function (bctx, size, center, canvas) {
+        bctx.clearRect(0,0,canvas.width, canvas.height);
+        var img = new Image();
+        img.onload = function() {
+            bctx.drawImage(img, 0, 0, document.getElementById('brush').width, document.getElementById('brush').height);
+        };
+        img.src = 'http://webneel.com/daily/sites/default/files/images/daily/09-2013/17-most-amazing-photo-hight-sea-tide.jpg'; //https://cdn.sstatic.net/stackexchange/img/logos/so/so-icon.png';
     }
 };
 
@@ -77,8 +157,17 @@ window["main"] = function ()
             var cvs = document.getElementById('overview');
             var ctx = cvs.getContext("2d");
 
-            ctx.drawImage(document.getElementById('paintlayer'),0, 0, cvs.width, cvs.height);
+            layers.forEach(function (layer) {
+               ctx.drawImage(layer.canvas,0, 0, cvs.width, cvs.height);
+            });
+            //ctx.drawImage(currentLayer.canvas/*document.getElementById('paintlayer')*/,0, 0, cvs.width, cvs.height);
         }
+        var pcvs = document.getElementById('paintlayer');
+        var pctx = pcvs.getContext("2d");
+        pctx.clearRect(0,0,pcvs.width,pcvs.height);
+        layers.forEach(function (layer) {
+            pctx.drawImage(layer.canvas,0, 0, pcvs.width, pcvs.height);
+        });
         window.requestAnimationFrame(callback);
     };
 
@@ -104,6 +193,7 @@ window["main"] = function ()
     overviewcanvas.style.height= parseInt(200*aspect) + 'px';
     overviewcanvas.width = 200;
     overviewcanvas.height= parseInt(200*aspect);
+    newLayer();
 
     paintcanvas.style.width = paintcanvas.width = window.innerWidth;
     paintcanvas.style.height = paintcanvas.height = window.innerHeight;
@@ -134,7 +224,14 @@ window["main"] = function ()
             var buff = cctx.getImageData(0, 0, colorpalette.width, colorpalette.height);
             var index = ((ev.clientX - xOffset) + (ev.clientY-yOffset) * colorpalette.width) * 4;
 
-            var rgb = 'rgb(' + buff.data[index++] +','+buff.data[index++] + ',' + buff.data[index++] +')';
+
+            var r=buff.data[index++];
+            var g=buff.data[index++];
+            var b=buff.data[index++];
+            document.getElementById('rcslider').value = r;
+            document.getElementById('gcslider').value = g;
+            document.getElementById('bcslider').value = b;
+            var rgb = 'rgb(' + r +','+ g+ ',' + b+')';
             generateBrush(undefined, rgb);
         }
     };
@@ -252,7 +349,7 @@ window["main"] = function ()
         }
     }*/
 
-    var ctx = paintcanvas.getContext("2d");
+    var ctx = getActiveLayer().ctx; //currentLayer.ctx; //paintcanvas.getContext("2d");
     ctx.globalCompositeOperation = gblendMode;
     ctx.globalAlpha = 0.1;
 
@@ -292,9 +389,9 @@ window["main"] = function ()
                 generateBrush();
             }
             if(steep) {
-                ctx.drawImage(brushcanvas, y - xOffset, x - yOffset);
+                getActiveLayer().ctx.drawImage(brushcanvas, y - xOffset, x - yOffset);
             } else {
-                ctx.drawImage(brushcanvas, x - xOffset, y - yOffset);
+                getActiveLayer().ctx.drawImage(brushcanvas, x - xOffset, y - yOffset);
             }
             err += err2;
             if(err > dx) {
@@ -305,7 +402,7 @@ window["main"] = function ()
     }
 
     paintcanvas.onmousedown = function (ev) {
-        ctx.globalCompositeOperation = gblendMode;
+        getActiveLayer().ctx.globalCompositeOperation = gblendMode;
         //console.log('blend ' + gblendMode);
 
         if(!pmousetrack) {
@@ -313,7 +410,7 @@ window["main"] = function ()
             var yOffset = paintcanvas.offsetTop + brushSizeMax/2;
             currentPos = ev;
             lastPos = ev;
-            ctx.drawImage(brushcanvas, ev.clientX - xOffset, ev.clientY - yOffset);
+            getActiveLayer().ctx.drawImage(brushcanvas, ev.clientX - xOffset, ev.clientY - yOffset);
             animCb = pmousetrack = function () {
                 if(lastPos && currentPos) {
                     var startX = lastPos.clientX;
@@ -321,15 +418,15 @@ window["main"] = function ()
                     var startY = lastPos.clientY;
                     var endY = currentPos.clientY;
                     if(startX != endX ||startY!=endY) {
-                        smoothLine(startX, startY, endX, endY, ctx);
+                        smoothLine(startX, startY, endX, endY, getActiveLayer().ctx);
                     } else {
-                        var alp = ctx.globalAlpha;
+                        var alp = getActiveLayer().ctx.globalAlpha;
                         ctx.globalAlpha = 0.01;
                         if(window["liveBrush"]) {
                             generateBrush();
                         }
-                        ctx.drawImage(brushcanvas, currentPos.clientX - xOffset + (Math.random()*5)-2.5, currentPos.clientY - yOffset + (Math.random()*5)-2.5);
-                        ctx.globalAlpha = alp;
+                        getActiveLayer().ctx.drawImage(brushcanvas, currentPos.clientX - xOffset + (Math.random()*5)-2.5, currentPos.clientY - yOffset + (Math.random()*5)-2.5);
+                        getActiveLayer().ctx.globalAlpha = alp;
                     }
                 }
                 lastPos = currentPos;

@@ -20,21 +20,52 @@
         <span id="brushSizeText" style="display: block;text-align: center;">Size</span>
         <input type="range" id="brushSize" value="13" max="55" min="1" step="0.5">
     </div>
-    <button type="button" onclick="exportPng()" style="display: block; margin: 30px; padding: 5px;">Export Png</button>
-    <button type="button" onclick="setBrush('softBrush')" style="display: block; margin: 30px;padding: 5px;">Soft Brush</button>
-    <button type="button" onclick="setBrush('hardBrush')" style="display: block; margin: 30px;padding: 5px;">Hard Brush</button>
-    <button type="button" onclick="setBrush('calligraphyBrush', false)" style="display: block; margin: 30px;padding: 5px;">Calligraphy Brush</button>
-    <button type="button" onclick="setBrush('calligraphyBrush', true)" style="display: block; margin: 30px;padding: 5px;">Confetti Brush</button>
-    <button type="button" onclick="setBrush('dotBrush', true)" style="display: block; margin: 30px;padding: 5px;">Dot Brush</button>
-    <button type="button" onclick="setBrush('dotBrush', false)" style="display: block; margin: 30px;padding: 5px;">Hair Brush</button>
+    <div>
+        <table>
+            <tr>
+                <td>
+                    <button type="button" onclick="exportPng()" style="display: block;">Export Png</button>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <button type="button" onclick="setBrush('softBrush')" style="display: block;">Soft</button>
+                </td>
+                <td>
+                    <button type="button" onclick="setBrush('hardBrush')" style="display: block;">Hard</button>
+                </td>
+            </tr>
+            <tr>
+                <td><button type="button" onclick="setBrush('calligraphyBrush', false)" style="display: block;">Calligraphy</button></td>
+                <td><button type="button" onclick="setBrush('calligraphyBrush', true)" style="display: block;">Confetti</button></td>
+            </tr>
+            <tr>
+                <td><button type="button" onclick="setBrush('dotBrush', true)" style="display: block;">Dot Brush</button></td>
+                <td><button type="button" onclick="setBrush('dotBrush', false)" style="display: block;">Hair Brush</button></td>
+            </tr>
+            <tr>
+                <td><button type="button" onclick="setBrush('imageBrush', false)" style="display: block;">Image Brush</button></td>
+            </tr>
+        </table>
+    </div>
+
 </div>
 
 <canvas id="paintlayer" width=640 height=480 style='cursor: crosshair; position: absolute; top:0; left:0;'></canvas>
 
 
-<div style="display: inline-block; border: solid 1px; padding: 5px; z-index: 10; position: absolute; right: 20px; border: solid 1px; background-color: rgba(255,255,255,1.0);">
+<div style="display: inline-block; border: solid 1px; padding: 5px; z-index: 10; position: absolute; right: 20px; border: solid 1px; background-color: rgba(255,255,255,1.0); max-width: 200px;">
     <canvas id="overview" width=640 height=480 style='cursor: none; position: relative; right: 20px; top: 0;'></canvas>
-
+    <div id="layers" style="border: solid 1px; text-align: center;">
+        <div id="layerInfo">Layer 1/1</div>
+        <table style="width: 100%; padding-left: 20%; padding-right: 20%;">
+            <tr>
+                <td><button type="button" onclick="addLayer()" style="display: block;">+</button></td>
+                <td><button type="button" onclick="clearLayer()" style="display: block;">Clear</button></td>
+                <td><button type="button" onclick="removeLayer()" style="display: block;">-</button></td>
+            </tr>
+        </table>
+    </div>
 </div>
 <script>
     window.addEventListener('DOMContentLoaded', function () {
