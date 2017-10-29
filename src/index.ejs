@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>FotoStop CK (Creative Klod)</title>
+</head>
+<script src="bundle.js"></script>
+<body style="user-select: none;">
+<div id="palette" style="max-width: 150px; transition: 0.5s ease-in-out; display: inline-block; border: solid 1px; padding: 5px; z-index: 10; position: fixed; background-color: rgba(152,179,202,1.0);">
+    <div style="border: solid 1px; padding: 1px; background-color: white;">
+        <!-- <input type="range" id="gslider" value="0" max="255" min="0" step="1" style="display: block;margin: 5px;'"> -->
+        <canvas id="colorPaletteHighlight" width=128 height=128 style='width:128px;height:128px; display: block; margin: 5px;'></canvas>
+        <canvas id="colorPalette" width=128 height=128 style='position: absolute; left: 5px; top: 5px; width:128px;height:128px; display: block; margin: 5px;'></canvas>
+        <input type="range" id="rcslider" value="0" max="255" min="0" step="1" style="display: block;margin: 5px;'">
+        <input type="range" id="gcslider" value="0" max="255" min="0" step="1" style="display: block;margin: 5px;'">
+        <input type="range" id="bcslider" value="0" max="255" min="0" step="1" style="display: block;margin: 5px;'">
+    </div>
+    <br>
+    <div style="border: solid 1px; padding: 1px; background-color: white;">
+        <canvas id="brush" width=128 height=128 style='width:128px;height:128px; display: block;'></canvas>
+        <span style="display: block;">Size:<span id="brushSizeText" style="display: block;text-align: center;">Size</span></span><input type="range" id="brushSize" value="13" max="128" min="1" step="0.5" style="display: inline-block;">
+        <span style="display: block;">Opacity:</span><input type="range" id="brushOpacity" value="0.5" max="0.5" min="0" step="0.01" style="display: inline-block;">
+        <span style="display: block;">Softness:</span><input type="range" id="brushSoft" value="0" max="6" min="0" step="0.01" style="display: inline-block;">
+    </div>
+    <div>
+        <table>
+            <tr>
+                <td colspan="2"><input type="file" id="fileupload" title="Upload image" style="display: block; max-width: 150px;"/></td>
+            </tr>
+            <tr>
+                <td><button id="eraseMode" type="button" onclick="enableEraser()" style="display: block;">Toggle erase mode</button></td>
+                <td><input type="checkbox" onclick="toggleKalman()"><label>Kalman filter</label></td>
+            </tr>
+            <tr>
+              <!--  <td>
+                    <button type="button" onclick="setBrush('softBrush')" style="display: block;">Soft</button>
+                </td> -->
+                <td>
+                    <button type="button" onclick="setBrush('hardBrush')" style="display: block;">Hard</button>
+                </td>
+            </tr>
+            <tr>
+                <td><button type="button" onclick="setBrush('calligraphyBrush', false)" style="display: block;">Calligraphy</button></td>
+                <td><button type="button" onclick="setBrush('calligraphyBrush', true)" style="display: block;">Confetti</button></td>
+            </tr>
+            <tr>
+                <td><button type="button" onclick="setBrush('dotBrush', true)" style="display: block;">Dot Brush</button></td>
+                <td><button type="button" onclick="setBrush('dotBrush', false)" style="display: block;">Hair Brush</button></td>
+            </tr>
+            <tr>
+                <td><button type="button" onclick="setBrush('imageBrush', false)" style="display: block;">Cloud Brush</button></td>
+                <td><button type="button" onclick="setBrush('imageBrush', true)" style="display: block;">Smoke Brush</button></td>
+            </tr>
+        </table>
+    </div>
+
+</div>
+
+<canvas id="paintlayer" width=640 height=480 style='cursor: crosshair; position: absolute; top:0; left:0;'></canvas>
+
+
+<div id="overviewOverlay" style="transition: 0.5s ease-in-out; display: inline-block; border: solid 1px; padding: 5px; z-index: 10; position: fixed; right: 20px; border: solid 1px; background-color: rgba(255,255,255,1.0); max-width: 200px;">
+    <div>
+        <canvas id="overview" width=640 height=480 style='cursor: none; position: relative; right: 0px; top: 0;'></canvas>
+        <div style="max-height: 75vh; overflow: auto;">
+            <div id="layers" style="border: solid 1px; text-align: center; width: 160px; overflow: hidden;">
+                <div id="layerHolder">
+
+                </div>
+                <div id="layerInfo">Layer 1/1</div>
+            </div>
+        </div>
+        <table style="width: 100%; padding-left: 20%; padding-right: 20%;">
+            <tr>
+                <td><button type="button" onclick="addLayer()" style="display: block;">+</button></td>
+                <td><button type="button" onclick="clearLayer()" style="display: block;">Clear</button></td>
+                <td><button type="button" onclick="removeLayer()" style="display: block;">-</button></td>
+            </tr>
+        </table>
+    </div>
+</div>
+<script>
+    window.addEventListener('DOMContentLoaded', function () {
+       main();
+    });
+</script>
+</body>
+</html>
