@@ -1,12 +1,64 @@
 var KalmanFilter = require('kalmanjs').default;
-var kalmanStrongArgs = {R: 0.1, Q: 20, B: 20};
-var kalmanDefault = {};
+//var kalmanStrongArgs = {R: 5, Q: 0, B: 1, A: 1.0};
+var kalmanStrongArgs = {R: 0.9, Q: 60.4, B: 1.0, A: 1.0}; //{R: 0.01, Q: 20.3, B: 1.0, A: 1.0};
+//var kalmanDefault =  {R: 0.9, Q: 10.4, B: 1.0, A: 1.0};// {R: 1.0, Q: 2.5, B: 4, A: 1.0};
+var kalmanDefault =  {R: 1.0, Q: 1.0, B: 1.0, A: 1.0};// {R: 1.0, Q: 2.5, B: 4, A: 1.0};
 
 var usesKalman = false;
 var kfY = null;
 var kfLY = null;
 var kfLX = null;
 var kfX = null;
+
+var gReplayMode = false;
+var replayPackets = [];
+
+window['replayPackets'] = replayPackets;
+
+var replayLive = [];
+
+var gPreviousPacket = null;
+
+window['replay'] = function () {
+    gReplayMode = true;
+    gPreviousPacket = null;
+    replayLive = JSON.parse(JSON.stringify(replayPackets))
+    replayStuff();
+};
+
+function replayStuff() {
+    var packet = replayLive.shift();
+    if(packet) {
+        var timing = 0;
+        var paintcanvas = document.getElementById('paintlayer');
+
+        switch(packet.cmd) {
+            case 'PAINTSTART':
+//                console.log('paintstart', packet);
+                paintcanvas.onmousedown(packet.data.ev);
+                break;
+            case 'PAINTMOVE':
+//                console.log('paintmove', );
+                timing = packet.stamp - gPreviousPacket.stamp;
+                paintcanvas.onmousemove(packet.data.ev);
+                break;
+            case 'PAINTSTOP':
+//                console.log('paintstop');
+                paintcanvas.onmouseup(packet);
+                break;
+        }
+        gPreviousPacket = packet;
+        setTimeout(replayStuff, timing);
+    } else {
+        gReplayMode = false;
+    }
+}
+
+function insertPacket(command, data) {
+    if(!gReplayMode) {
+        replayPackets.push({ stamp: Date.now(), cmd: command, data: data});
+    }
+}
 
 //var kf = new KalmanFilter();
 
@@ -87,6 +139,8 @@ function wrapTouchEvents(el) {
 }
 
 function newLayer() {
+    insertPacket('NEW_LAYER');
+
     var cI = layers.indexOf(currentLayer);
    // if(cI < 0 || (cI+1) >= layers.length) {
         var container = document.createElement('div');
@@ -230,6 +284,7 @@ function newLayer() {
 }
 
 window["removeLayer"] = function removeLayer() {
+    insertPacket('REMOVE_LAYER');
     var cI = layers.indexOf(currentLayer);
     if(cI >= 0) {
         layers.splice(cI, 1);
@@ -249,6 +304,7 @@ window["removeLayer"] = function removeLayer() {
 }
 
 window["clearLayer"] = function clearLayer() {
+    insertPacket('CLEAR_LAYER');
     currentLayer.ctx.clearRect(0,0,currentLayer.canvas.width,currentLayer.canvas.height);
     document.getElementById('overview').getContext("2d").clearRect(0,0, document.getElementById('overview').width,  document.getElementById('overview').height);
     document.getElementById('paintlayer').getContext("2d").fillRect(0,0,currentLayer.canvas.width, currentLayer.canvas.height);
@@ -329,10 +385,12 @@ var currentBrush = 'hardBrush';
 window["liveBrush"] = false;
 
 window["toggleKalman"] = function () {
+    insertPacket('TOGGLE_KALMAN');
     usesKalman = !usesKalman;
 };
 
 window["enableEraser"] = function () {
+    insertPacket('TOGGLE_ERASER');
     geraseMode = !geraseMode;
     document.getElementById('eraseMode').style.border = '1px solid red';
 
@@ -340,6 +398,7 @@ window["enableEraser"] = function () {
 };
 
 window["setBrush"] = function (brush, live) {
+    insertPacket('SET_BRUSH', { brush: brush, live: live });
     window["activateBrush"](brush, live);
 };
 
@@ -449,13 +508,18 @@ window["main"] = function ()
     document.getElementById('brush').width = brushSizeMax;
     document.getElementById('brush').height = brushSizeMax;
 
+    document.onkeyup = function (ev) {
+        insertPacket('KEYUP', { ev: { key: ev.key}});
+    };
+
     document.onkeydown = function (ev) {
-        if(ev.key === 'Alt') {
+        insertPacket('KEYDOWN', { ev: { key: ev.key}});
+       /* if(ev.key === 'Alt') {
             document.getElementById('palette').style.opacity = '0.0';
             document.getElementById('palette').style.pointerEvents = 'none';
             document.getElementById('overviewOverlay').style.opacity = '0.0';
             document.getElementById('overviewOverlay').style.pointerEvents = 'none';
-        }
+        }*/
     };
 
     document.onkeydown = function (ev) {
@@ -807,11 +871,21 @@ window["main"] = function ()
     };
 
     paintcanvas.onmousedown = function (ev) {
+        insertPacket('PAINTSTART', { ev: { pageX: ev.pageX, pageY: ev.pageY}});
+
         var args = usesKalman ? kalmanStrongArgs : kalmanDefault;
         kfX = new KalmanFilter(args);
         kfY = new KalmanFilter(args);
         kfLX = new KalmanFilter(args);
         kfLY = new KalmanFilter(args);
+
+        for(var i = 0; i < 100;i++) {
+            kfLX.filter(ev.pageX,0);
+            kfX.filter(ev.pageX,0);
+            kfLY.filter(ev.pageY,0);
+            kfY.filter(ev.pageY,0);
+        }
+
         getActiveLayer().ctx.globalCompositeOperation = gblendMode;
         //console.log('blend ' + gblendMode);
 
@@ -839,10 +913,10 @@ window["main"] = function ()
             getActiveLayer().ctx.drawImage(brushcanvas, ev.pageX - xOffset, ev.pageY - yOffset);
             animCb = pmousetrack = function () {
                 if(lastPos && currentPos) {
-                    var startX = parseInt(kfLX.filter(lastPos.pageX));
-                    var endX = parseInt(kfX.filter(currentPos.pageX));
-                    var startY = parseInt(kfLY.filter(lastPos.pageY));
-                    var endY = parseInt(kfY.filter(currentPos.pageY));
+                    var startX = parseInt(kfLX.filter(lastPos.pageX,0));
+                    var endX = parseInt(kfX.filter(currentPos.pageX,0));
+                    var startY = parseInt(kfLY.filter(lastPos.pageY,0));
+                    var endY = parseInt(kfY.filter(currentPos.pageY,0));
                     //console.log(startX,startY,endX,endY);
                     if(startX != endX ||startY!=endY) {
                         smoothLine(startX, startY, endX, endY, getActiveLayer().ctx);
@@ -852,7 +926,7 @@ window["main"] = function ()
                         if(window["liveBrush"]) {
                             generateBrush();
                         }
-                        getActiveLayer().ctx.drawImage(brushcanvas, kfX.filter(currentPos.pageX) - xOffset + (Math.random()*5)-2.5, kfY.filter(currentPos.pageY) - yOffset + (Math.random()*5)-2.5);
+                        getActiveLayer().ctx.drawImage(brushcanvas, kfX.filter(currentPos.pageX, 0) - xOffset + (Math.random()*5)-2.5, kfY.filter(currentPos.pageY, 0) - yOffset + (Math.random()*5)-2.5);
                         getActiveLayer().ctx.globalAlpha = alp;
                     }
                 }
@@ -889,6 +963,8 @@ window["main"] = function ()
 
 
         if(pmousetrack) {
+            insertPacket('PAINTSTOP');
+
             animCb = null;
        //     clearInterval(pmousetrack);
         }
@@ -900,6 +976,8 @@ window["main"] = function ()
 
     paintcanvas.onmousemove = function (ev) {
         if(pmousetrack) {
+            insertPacket('PAINTMOVE', { ev: { pageX: ev.pageX, pageY: ev.pageY}});
+
             if(!lastPos || !currentPos) {
                 console.log('setting pos');
                 currentPos = { pageX: ev.pageX, pageY: ev.pageY};
@@ -909,8 +987,9 @@ window["main"] = function ()
            // lastPos = currentPos;
             //            console.log(ev);
 
-            currentPos = { pageX: ev.pageX,
-                           pageY: ev.pageY};
+            currentPos = { pageX: ev.pageX /* + (Math.random()*25)-12.5*/,
+                           pageY: ev.pageY /* + (Math.random()*25)-12.5*/};
+
             //currentPos = ev;
 
             // var buff = ctx.getImageData(0, 0, paintcanvas.width, paintcanvas.height);
